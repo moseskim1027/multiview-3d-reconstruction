@@ -1,0 +1,262 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Multiview 3D Reconstruction API",
+    "description": "Stereo 3D reconstruction from image pairs using SIFT feature matching, RANSAC fundamental matrix estimation, and DLT triangulation.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/reconstruct": {
+      "post": {
+        "tags": [
+          "reconstruction"
+        ],
+        "summary": "Reconstruct",
+        "description": "Run the full stereo 3D reconstruction pipeline.\n\nUpload a stereo image pair (and optionally a calibration file) to receive:\n- A list of triangulated 3D points with per-point RGB colours.\n- Reconstruction quality metrics (reprojection error, inlier ratio, etc.).",
+        "operationId": "reconstruct_api_reconstruct_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_reconstruct_api_reconstruct_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconstructionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "description": "Return service health status.",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_reconstruct_api_reconstruct_post": {
+        "properties": {
+          "im0": {
+            "type": "string",
+            "format": "binary",
+            "title": "Im0",
+            "description": "Left stereo image (PNG/JPEG)."
+          },
+          "im1": {
+            "type": "string",
+            "format": "binary",
+            "title": "Im1",
+            "description": "Right stereo image (PNG/JPEG)."
+          },
+          "calib": {
+            "type": "string",
+            "format": "binary",
+            "title": "Calib",
+            "description": "Middlebury-format calib.txt file.  If omitted, intrinsics are estimated from image dimensions."
+          }
+        },
+        "type": "object",
+        "required": [
+          "im0",
+          "im1"
+        ],
+        "title": "Body_reconstruct_api_reconstruct_post"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "version"
+        ],
+        "title": "HealthResponse"
+      },
+      "ReconstructionMetrics": {
+        "properties": {
+          "reprojection_rmse": {
+            "type": "number",
+            "title": "Reprojection Rmse",
+            "description": "Root-mean-square reprojection error in pixels (cam2 plane)."
+          },
+          "num_keypoints_matched": {
+            "type": "integer",
+            "title": "Num Keypoints Matched",
+            "description": "Number of good SIFT matches after Lowe's ratio test."
+          },
+          "num_inliers": {
+            "type": "integer",
+            "title": "Num Inliers",
+            "description": "Number of inlier correspondences after RANSAC fundamental matrix estimation."
+          },
+          "inlier_ratio": {
+            "type": "number",
+            "title": "Inlier Ratio",
+            "description": "Fraction of SIFT matches that survived RANSAC filtering (0\u20131)."
+          },
+          "num_3d_points": {
+            "type": "integer",
+            "title": "Num 3D Points",
+            "description": "Number of successfully triangulated 3D points."
+          },
+          "baseline_length": {
+            "type": "number",
+            "title": "Baseline Length",
+            "description": "Estimated camera baseline length (magnitude of translation vector)."
+          },
+          "mean_depth": {
+            "type": "number",
+            "title": "Mean Depth",
+            "description": "Mean depth (Z coordinate) of the reconstructed point cloud."
+          },
+          "depth_range": {
+            "type": "number",
+            "title": "Depth Range",
+            "description": "Depth range (max Z \u2212 min Z) of the reconstructed point cloud."
+          }
+        },
+        "type": "object",
+        "required": [
+          "reprojection_rmse",
+          "num_keypoints_matched",
+          "num_inliers",
+          "inlier_ratio",
+          "num_3d_points",
+          "baseline_length",
+          "mean_depth",
+          "depth_range"
+        ],
+        "title": "ReconstructionMetrics"
+      },
+      "ReconstructionResponse": {
+        "properties": {
+          "points": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Points",
+            "description": "Reconstructed 3D points as [[x, y, z], ...]."
+          },
+          "colors": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Colors",
+            "description": "Per-point RGB colours normalised to [0, 1] as [[r, g, b], ...]."
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/ReconstructionMetrics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "points",
+          "colors",
+          "metrics"
+        ],
+        "title": "ReconstructionResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
