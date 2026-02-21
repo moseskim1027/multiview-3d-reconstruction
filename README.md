@@ -2,6 +2,12 @@
 
 A containerised full-stack application for stereo 3D reconstruction.  Upload a left/right image pair and an optional calibration file to get an interactive point cloud rendered in your browser.
 
+| Left (`im0`) | Right (`im1`) |
+|:---:|:---:|
+| <img src="data/bicycle_sample/im0.png" width="100%" alt="Left image" /> | <img src="data/bicycle_sample/im1.png" width="100%" alt="Right image" /> |
+
+<sub>Sample stereo pair from the <a href="https://vision.middlebury.edu/stereo/data/">Middlebury Stereo Datasets</a>.</sub>
+
 <img src="resources/demo.gif" width="100%" alt="Bicycle demo" />
 
 ---
@@ -10,10 +16,12 @@ A containerised full-stack application for stereo 3D reconstruction.  Upload a l
 
 ```
 multiview-3d-reconstruction/
-├── backend/          FastAPI + OpenCV reconstruction pipeline
-├── frontend/         React + Three.js 3D point cloud viewer
-├── docker-compose.yml          Production stack
-└── docker-compose.dev.yml      Development stack (hot-reload)
+├── backend/                 FastAPI + OpenCV reconstruction pipeline
+├── frontend/                React + Three.js 3D point cloud viewer
+├── data/                    Sample stereo image pairs
+├── resources/               Demo assets
+├── docker-compose.yml
+└── docker-compose.dev.yml
 ```
 
 ### Backend
