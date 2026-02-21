@@ -1,0 +1,161 @@
+name: CD - Production Deployment
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "v*.*.*"
+
+# Cancel in-progress deployments when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: multiview-3d-reconstruction
+  EKS_CLUSTER_NAME: multiview-3d-prod
+
+jobs:
+  # ── Build & push images ──────────────────────────────────────────────────────
+  build-and-push:
+    name: Build and Push to ECR
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.image-tag.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate image tag
+        id: image-tag
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          IMAGE_TAG="prod-${SHORT_SHA}-$(date +%s)"
+          echo "tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Image tag: ${IMAGE_TAG}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Uncomment and configure when deploying to real infrastructure:
+      # - name: Configure AWS credentials
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: ${{ env.AWS_REGION }}
+
+      # - name: Login to Amazon ECR
+      #   id: login-ecr
+      #   uses: aws-actions/amazon-ecr-login@v2
+
+      # - name: Build and push backend to ECR
+      #   env:
+      #     ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      #     IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
+      #   run: |
+      #     docker build -t $ECR_REGISTRY/$ECR_REPOSITORY-backend:$IMAGE_TAG ./backend
+      #     docker tag  $ECR_REGISTRY/$ECR_REPOSITORY-backend:$IMAGE_TAG \
+      #                 $ECR_REGISTRY/$ECR_REPOSITORY-backend:latest
+      #     docker push $ECR_REGISTRY/$ECR_REPOSITORY-backend:$IMAGE_TAG
+      #     docker push $ECR_REGISTRY/$ECR_REPOSITORY-backend:latest
+
+      # - name: Build and push frontend to ECR
+      #   env:
+      #     ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      #     IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
+      #   run: |
+      #     docker build -t $ECR_REGISTRY/$ECR_REPOSITORY-frontend:$IMAGE_TAG ./frontend
+      #     docker tag  $ECR_REGISTRY/$ECR_REPOSITORY-frontend:$IMAGE_TAG \
+      #                 $ECR_REGISTRY/$ECR_REPOSITORY-frontend:latest
+      #     docker push $ECR_REGISTRY/$ECR_REPOSITORY-frontend:$IMAGE_TAG
+      #     docker push $ECR_REGISTRY/$ECR_REPOSITORY-frontend:latest
+
+      - name: Simulate image build and push
+        run: |
+          echo "========================================"
+          echo "Image Build & Push Simulation"
+          echo "========================================"
+          echo "Tag: ${{ steps.image-tag.outputs.tag }}"
+          echo "Backend:  <AWS_ACCOUNT>.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}-backend:${{ steps.image-tag.outputs.tag }}"
+          echo "Frontend: <AWS_ACCOUNT>.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}-frontend:${{ steps.image-tag.outputs.tag }}"
+
+  # ── Deploy ───────────────────────────────────────────────────────────────────
+  deploy-production:
+    name: Deploy to EKS Production
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://your-domain.com
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Uncomment and configure when deploying to real infrastructure:
+      # - name: Configure AWS credentials
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: ${{ env.AWS_REGION }}
+
+      # - name: Update kubeconfig for EKS
+      #   run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+
+      # - name: Deploy to Kubernetes
+      #   env:
+      #     IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
+      #   run: |
+      #     kubectl set image deployment/backend \
+      #       backend=<ECR_REGISTRY>/${{ env.ECR_REPOSITORY }}-backend:${IMAGE_TAG} \
+      #       -n production
+      #     kubectl set image deployment/frontend \
+      #       frontend=<ECR_REGISTRY>/${{ env.ECR_REPOSITORY }}-frontend:${IMAGE_TAG} \
+      #       -n production
+      #     kubectl rollout status deployment/backend  -n production --timeout=5m
+      #     kubectl rollout status deployment/frontend -n production --timeout=5m
+
+      # - name: Run smoke tests
+      #   run: |
+      #     ENDPOINT=$(kubectl get svc frontend -n production -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+      #     curl -f "http://${ENDPOINT}/" || exit 1
+      #     curl -f "http://${ENDPOINT}/api/health" || exit 1
+
+      - name: Simulate deployment
+        env:
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
+        run: |
+          echo "========================================"
+          echo "Production Deployment Simulation"
+          echo "========================================"
+          echo "Cluster: ${{ env.EKS_CLUSTER_NAME }}"
+          echo "Region:  ${{ env.AWS_REGION }}"
+          echo "Tag:     ${IMAGE_TAG}"
+          echo ""
+          echo "Steps that would execute:"
+          echo "1. Configure AWS credentials"
+          echo "2. Update kubeconfig for EKS cluster"
+          echo "3. kubectl set image deployment/backend  ... -n production"
+          echo "4. kubectl set image deployment/frontend ... -n production"
+          echo "5. kubectl rollout status ..."
+          echo "6. Smoke test: GET /api/health → 200 OK"
+          echo "========================================"
+
+  # ── Notify ───────────────────────────────────────────────────────────────────
+  notify:
+    name: Deployment Notification
+    needs: [build-and-push, deploy-production]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Report outcome
+        run: |
+          if [[ "${{ needs.deploy-production.result }}" == "success" ]]; then
+            echo "Production deployment succeeded."
+            echo "Image tag: ${{ needs.build-and-push.outputs.image-tag }}"
+          else
+            echo "Production deployment failed!"
+            exit 1
+          fi

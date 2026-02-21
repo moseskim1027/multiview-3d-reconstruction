@@ -1,0 +1,207 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+# Cancel in-progress runs when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Backend lint ─────────────────────────────────────────────────────────────
+  lint-backend:
+    name: Lint Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install lint dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: black
+        run: |
+          cd backend
+          black --check app/ tests/
+
+      - name: isort
+        run: |
+          cd backend
+          isort --check-only app/ tests/
+
+      - name: flake8
+        run: |
+          cd backend
+          flake8 app/ tests/ --max-line-length=100 --extend-ignore=E203,W503
+
+      - name: mypy
+        run: |
+          cd backend
+          mypy app/ --ignore-missing-imports
+        continue-on-error: true
+
+  # ── Frontend lint ────────────────────────────────────────────────────────────
+  lint-frontend:
+    name: Lint Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Install dependencies
+        run: cd frontend && yarn install --frozen-lockfile
+
+      - name: Generate API types
+        run: cd frontend && yarn generate
+
+      - name: TypeScript type-check
+        run: cd frontend && yarn type-check
+
+      - name: ESLint
+        run: cd frontend && yarn lint
+
+  # ── Backend tests ────────────────────────────────────────────────────────────
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+    needs: lint-backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Run tests with coverage
+        run: |
+          cd backend
+          pytest tests/ -v --tb=short
+
+  # ── Docker build (backend) ───────────────────────────────────────────────────
+  build-backend:
+    name: Build Backend Docker Image
+    runs-on: ubuntu-latest
+    needs: test-backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: multiview-3d-reconstruction-backend:ci-test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Docker build (frontend) ──────────────────────────────────────────────────
+  build-frontend:
+    name: Build Frontend Docker Image
+    runs-on: ubuntu-latest
+    needs: lint-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          tags: multiview-3d-reconstruction-frontend:ci-test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── OpenAPI schema drift check ───────────────────────────────────────────────
+  check-schema:
+    name: Check OpenAPI Schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Regenerate OpenAPI schema
+        run: |
+          cd backend
+          python -c "
+          import json, sys
+          from app.main import app
+          print(json.dumps(app.openapi(), indent=2))
+          " > /tmp/openapi-fresh.json
+
+      - name: Diff against committed schema
+        run: |
+          if ! diff -q frontend/openapi.json /tmp/openapi-fresh.json > /dev/null; then
+            echo "❌ OpenAPI schema is out of sync with the backend."
+            echo ""
+            echo "To fix, regenerate and commit openapi.json:"
+            echo "  cd backend && python -c \"import json; from app.main import app; print(json.dumps(app.openapi(), indent=2))\" > ../frontend/openapi.json"
+            echo ""
+            diff frontend/openapi.json /tmp/openapi-fresh.json || true
+            exit 1
+          fi
+          echo "✅ OpenAPI schema is up to date."
+
+  # ── Gate ─────────────────────────────────────────────────────────────────────
+  all-checks-passed:
+    name: All Checks Passed
+    runs-on: ubuntu-latest
+    needs: [lint-backend, lint-frontend, test-backend, build-backend, build-frontend, check-schema]
+    if: always()
+    steps:
+      - name: Verify all jobs succeeded
+        run: |
+          declare -A results=(
+            [lint-backend]="${{ needs.lint-backend.result }}"
+            [lint-frontend]="${{ needs.lint-frontend.result }}"
+            [test-backend]="${{ needs.test-backend.result }}"
+            [build-backend]="${{ needs.build-backend.result }}"
+            [build-frontend]="${{ needs.build-frontend.result }}"
+            [check-schema]="${{ needs.check-schema.result }}"
+          )
+          failed=0
+          for job in "${!results[@]}"; do
+            if [[ "${results[$job]}" != "success" ]]; then
+              echo "FAILED: $job (${results[$job]})"
+              failed=1
+            fi
+          done
+          if [[ $failed -eq 1 ]]; then exit 1; fi
+          echo "All checks passed."
