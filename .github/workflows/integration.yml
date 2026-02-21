@@ -1,0 +1,63 @@
+name: Integration Check
+
+# Runs after every merge to develop (and main).
+# Builds the real Docker images from source and smoke-tests both services,
+# replacing the redundant CI re-run that used to fire on push.
+
+on:
+  push:
+    branches: [develop, main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker-health-check:
+    name: Docker Smoke Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build images
+        run: docker compose build
+
+      - name: Start services
+        run: docker compose up -d
+
+      - name: Wait for backend to be ready
+        run: |
+          echo "Waiting for backend..."
+          timeout 90 bash -c \
+            'until curl -sf http://localhost:8000/api/health > /dev/null 2>&1; do
+               echo "  still waiting..."; sleep 3
+             done'
+          echo "Backend is ready."
+
+      - name: Backend health check
+        run: |
+          response=$(curl -sf http://localhost:8000/api/health)
+          echo "Response: $response"
+          python3 -c "
+          import sys, json
+          d = json.loads('$response')
+          assert d['status'] == 'ok', f\"Expected status 'ok', got: {d['status']}\"
+          print('Backend health check passed.')
+          "
+
+      - name: Frontend reachability check
+        run: |
+          curl -sf http://localhost:3000 -o /dev/null
+          echo "Frontend is reachable."
+
+      - name: Print container logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose down
