@@ -1,9 +1,7 @@
-import io
 import re
 
 import cv2
 import numpy as np
-from PIL import Image
 
 
 def parse_middlebury_calib(content: str) -> tuple[np.ndarray, np.ndarray]:

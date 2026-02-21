@@ -17,7 +17,7 @@ function PointCloud({ points, colors, pointSize }: PointCloudProps) {
   const ref = useRef<THREE.Points>(null);
 
   // Build typed arrays once whenever the data changes
-  const { positions, colorArray, center } = useMemo(() => {
+  const { positions, colorArray } = useMemo(() => {
     const n = points.length;
     const positions = new Float32Array(n * 3);
     const colorArray = new Float32Array(n * 3);
@@ -47,7 +47,7 @@ function PointCloud({ points, colors, pointSize }: PointCloudProps) {
       colorArray[i * 3 + 2] = b;
     }
 
-    return { positions, colorArray, center: new THREE.Vector3(cx, cy, cz) };
+    return { positions, colorArray };
   }, [points, colors]);
 
   // Gentle auto-rotation when idle

@@ -1,14 +1,11 @@
 """Unit and integration tests for the reconstruction pipeline."""
 
-import io
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.utils import bytes_to_bgr, estimate_intrinsics, parse_middlebury_calib
 from app.main import app
-from app.core.utils import parse_middlebury_calib, bytes_to_bgr, estimate_intrinsics
-from app.core.reconstruction import Reconstruction3D
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -35,7 +32,7 @@ def client():
 def random_bgr_image():
     """Return a reproducible 200×300 random BGR image as a numpy array."""
     rng = np.random.default_rng(42)
-    return (rng.integers(0, 256, (200, 300, 3), dtype=np.uint8))
+    return rng.integers(0, 256, (200, 300, 3), dtype=np.uint8)
 
 
 # ---------------------------------------------------------------------------
