@@ -62,17 +62,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
 
       - name: Install dependencies
-        run: cd frontend && npm ci
+        run: cd frontend && yarn install --frozen-lockfile
 
       - name: TypeScript type-check
-        run: cd frontend && npm run type-check
+        run: cd frontend && yarn type-check
 
       - name: ESLint
-        run: cd frontend && npm run lint
+        run: cd frontend && yarn lint
 
   # ── Backend tests ────────────────────────────────────────────────────────────
   test-backend:

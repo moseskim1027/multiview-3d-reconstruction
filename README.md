@@ -105,10 +105,19 @@ cam1=[f 0 cx; 0 f cy; 0 0 1]
 
 ## Running tests
 
+**Backend**
 ```bash
 cd backend
 pip install -r requirements.txt
 pytest tests/ -v
+```
+
+**Frontend**
+```bash
+cd frontend
+yarn install
+yarn type-check
+yarn lint
 ```
 
 ---
