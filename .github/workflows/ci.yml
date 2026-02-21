@@ -28,7 +28,7 @@ jobs:
       - name: Install lint dependencies
         run: |
           cd backend
-          pip install black isort flake8 mypy
+          pip install -r requirements.txt
 
       - name: black
         run: |
