@@ -24,6 +24,7 @@ multiview-3d-reconstruction/
 - **Three.js** via `@react-three/fiber` for GPU-accelerated point cloud rendering
 - `OrbitControls` for drag/zoom/pan navigation
 - Metrics panel (reprojection RMSE, inlier ratio, point cloud stats)
+- API types auto-generated from `frontend/openapi.json` via `openapi-typescript`
 
 ---
 
@@ -100,6 +101,44 @@ cam1=[f 0 cx; 0 f cy; 0 0 1]
 | `baseline_length` | Camera separation (translation vector magnitude). |
 | `mean_depth` | Average scene depth (Z coordinate). |
 | `depth_range` | Depth extent of the point cloud. |
+
+---
+
+## Regenerating API types
+
+Frontend TypeScript types are generated from `frontend/openapi.json`, which is derived from the FastAPI app's OpenAPI schema. **Both files must be kept in sync and committed together whenever backend schemas change.**
+
+### When to regenerate
+
+- You add, remove, or rename a field in a Pydantic model (`backend/app/models/schemas.py`)
+- You add or modify an API endpoint (`backend/app/api/routes/`)
+- You see CI failing on the `check-schema` job
+
+### How to regenerate
+
+**Step 1 — update `openapi.json` from the backend (no server required):**
+```bash
+cd backend
+python -c "import json; from app.main import app; print(json.dumps(app.openapi(), indent=2))" \
+  > ../frontend/openapi.json
+```
+
+**Step 2 — regenerate TypeScript types from the updated schema:**
+```bash
+cd frontend
+yarn generate
+```
+
+**Step 3 — verify type-check still passes, then commit both files:**
+```bash
+cd frontend
+yarn type-check
+git add openapi.json
+# schema.d.ts is gitignored — do not commit it
+git add -p  # review and stage other changes as needed
+```
+
+> `frontend/src/api/schema.d.ts` is gitignored and regenerated automatically in CI and Docker builds. Never commit it.
 
 ---
 
