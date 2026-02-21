@@ -38,7 +38,7 @@ function PointCloud({ points, colors, pointSize }: PointCloudProps) {
     for (let i = 0; i < n; i++) {
       const [x, y, z] = points[i];
       positions[i * 3] = x - cx;
-      positions[i * 3 + 1] = y - cy;
+      positions[i * 3 + 1] = -(y - cy); // flip: OpenCV Y-down → Three.js Y-up
       positions[i * 3 + 2] = z - cz;
 
       const [r, g, b] = colors[i];
@@ -104,7 +104,7 @@ export function PointCloudViewer({ points, colors }: PointCloudViewerProps) {
           gl.setClearColor(new THREE.Color("#0f1117"));
         }}
       >
-        <PerspectiveCamera makeDefault position={[0, 0, 3]} fov={60} />
+        <PerspectiveCamera makeDefault position={[0, 0, 6]} fov={60} />
         <ambientLight intensity={0.4} />
         <pointLight position={[5, 5, 5]} intensity={0.8} />
 

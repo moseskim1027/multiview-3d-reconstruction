@@ -1,15 +1,21 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface FileInputProps {
   label: string;
   accept: string;
   required?: boolean;
+  value?: File;
   onChange: (file: File | undefined) => void;
 }
 
-function FileInput({ label, accept, required = false, onChange }: FileInputProps) {
+function FileInput({ label, accept, required = false, value, onChange }: FileInputProps) {
   const ref = useRef<HTMLInputElement>(null);
-  const [name, setName] = useState<string>("No file selected");
+  const [name, setName] = useState<string>(value?.name ?? "No file selected");
+
+  // Sync display name when a file is loaded externally (e.g. sample data)
+  useEffect(() => {
+    setName(value?.name ?? "No file selected");
+  }, [value]);
 
   const handleChange = () => {
     const file = ref.current?.files?.[0];
@@ -53,6 +59,7 @@ export function ImageUpload({ onSubmit, isLoading }: ImageUploadProps) {
   const [im0, setIm0] = useState<File | undefined>();
   const [im1, setIm1] = useState<File | undefined>();
   const [calib, setCalib] = useState<File | undefined>();
+  const [loadingSample, setLoadingSample] = useState(false);
 
   const canSubmit = !!im0 && !!im1 && !isLoading;
 
@@ -61,15 +68,43 @@ export function ImageUpload({ onSubmit, isLoading }: ImageUploadProps) {
     if (im0 && im1) onSubmit(im0, im1, calib);
   };
 
+  const loadSample = async () => {
+    setLoadingSample(true);
+    try {
+      const [r0, r1, rc] = await Promise.all([
+        fetch("/samples/im0.png"),
+        fetch("/samples/im1.png"),
+        fetch("/samples/calib.txt"),
+      ]);
+      const [b0, b1, bc] = await Promise.all([r0.blob(), r1.blob(), rc.blob()]);
+      setIm0(new File([b0], "im0.png", { type: "image/png" }));
+      setIm1(new File([b1], "im1.png", { type: "image/png" }));
+      setCalib(new File([bc], "calib.txt", { type: "text/plain" }));
+    } finally {
+      setLoadingSample(false);
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} style={styles.form}>
-      <h2 style={styles.heading}>Upload Stereo Pair</h2>
+      <div style={styles.headingRow}>
+        <h2 style={styles.heading}>Upload Stereo Pair</h2>
+        <button
+          type="button"
+          onClick={loadSample}
+          disabled={loadingSample || isLoading}
+          style={loadingSample || isLoading ? styles.sampleBtnDisabled : styles.sampleBtn}
+        >
+          {loadingSample ? "Loading…" : "Load sample data"}
+        </button>
+      </div>
 
-      <FileInput label="Left image (im0)" accept="image/*" required onChange={setIm0} />
-      <FileInput label="Right image (im1)" accept="image/*" required onChange={setIm1} />
+      <FileInput label="Left image (im0)" accept="image/*" required value={im0} onChange={setIm0} />
+      <FileInput label="Right image (im1)" accept="image/*" required value={im1} onChange={setIm1} />
       <FileInput
         label="Calibration file (calib.txt)"
         accept=".txt,text/plain"
+        value={calib}
         onChange={setCalib}
       />
       <p style={styles.hint}>
@@ -93,11 +128,39 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 16,
     minWidth: 320,
   },
+  headingRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
   heading: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 600,
     color: "#e2e8f0",
-    marginBottom: 8,
+    margin: 0,
+  },
+  sampleBtn: {
+    padding: "6px 12px",
+    borderRadius: 6,
+    border: "1px solid #334155",
+    background: "#0f1117",
+    color: "#60a5fa",
+    fontSize: 12,
+    fontWeight: 500,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+  sampleBtnDisabled: {
+    padding: "6px 12px",
+    borderRadius: 6,
+    border: "1px solid #1e293b",
+    background: "#0f1117",
+    color: "#475569",
+    fontSize: 12,
+    fontWeight: 500,
+    cursor: "not-allowed",
+    whiteSpace: "nowrap",
   },
   field: {
     display: "flex",

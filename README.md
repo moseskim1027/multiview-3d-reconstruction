@@ -1,6 +1,8 @@
 # Multiview 3D Reconstruction
 
-A containerised full-stack application for stereo 3D reconstruction.  Upload a left/right image pair and an optional calibration file to get an interactive, colour-accurate point cloud rendered in your browser.
+A containerised full-stack application for stereo 3D reconstruction.  Upload a left/right image pair and an optional calibration file to get an interactive point cloud rendered in your browser.
+
+<img src="resources/demo.gif" width="100%" alt="Bicycle demo" />
 
 ---
 
