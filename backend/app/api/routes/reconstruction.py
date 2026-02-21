@@ -39,7 +39,9 @@ async def reconstruct(
         img1 = bytes_to_bgr(img1_bytes)
         img2 = bytes_to_bgr(img2_bytes)
     except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Image decoding failed: {exc}") from exc
+        raise HTTPException(
+            status_code=422, detail=f"Image decoding failed: {exc}"
+        ) from exc
 
     # Resolve intrinsic matrices
     try:
@@ -47,11 +49,15 @@ async def reconstruct(
             calib_text = (await calib.read()).decode("utf-8")
             K1, K2 = parse_middlebury_calib(calib_text)
         else:
-            logger.warning("No calibration file provided; estimating intrinsics from image size.")
+            logger.warning(
+                "No calibration file provided; estimating intrinsics from image size."
+            )
             K1 = estimate_intrinsics(img1)
             K2 = estimate_intrinsics(img2)
     except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Calibration parsing failed: {exc}") from exc
+        raise HTTPException(
+            status_code=422, detail=f"Calibration parsing failed: {exc}"
+        ) from exc
 
     # Run reconstruction
     try:
@@ -61,6 +67,8 @@ async def reconstruct(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Unexpected error during reconstruction")
-        raise HTTPException(status_code=500, detail=f"Reconstruction failed: {exc}") from exc
+        raise HTTPException(
+            status_code=500, detail=f"Reconstruction failed: {exc}"
+        ) from exc
 
     return ReconstructionResponse(**result)

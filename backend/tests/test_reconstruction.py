@@ -35,7 +35,7 @@ def client():
 def random_bgr_image():
     """Return a reproducible 200×300 random BGR image as a numpy array."""
     rng = np.random.default_rng(42)
-    return (rng.integers(0, 256, (200, 300, 3), dtype=np.uint8))
+    return rng.integers(0, 256, (200, 300, 3), dtype=np.uint8)
 
 
 # ---------------------------------------------------------------------------
