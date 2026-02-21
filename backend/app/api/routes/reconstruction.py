@@ -3,7 +3,6 @@
 import logging
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
 
 from app.core.reconstruction import Reconstruction3D
 from app.core.utils import bytes_to_bgr, estimate_intrinsics, parse_middlebury_calib
