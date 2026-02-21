@@ -131,18 +131,27 @@ class Reconstruction3D:
         """Derive essential matrix from the fundamental matrix and intrinsics."""
         return self.K1.T @ self.fund @ self.K2
 
-    def compute_proj_matrices(self) -> None:
-        """Compute 3×4 projection matrices for both cameras."""
-        # Camera 1 sits at the world origin
-        cam1_ext = np.hstack((np.eye(3), np.zeros((3, 1))))
-        self.proj1 = self.K1 @ cam1_ext
+    def compute_proj_matrices(self, pixel_pts1: np.ndarray, pixel_pts2: np.ndarray) -> None:
+        """Compute 3×4 projection matrices for both cameras.
 
-        # Camera 2 pose from essential matrix decomposition
+        Uses cv2.recoverPose (cheirality check) to select the correct (R, t)
+        from the four essential-matrix solutions.  Projection matrices do NOT
+        include K because the DLT operates on normalised camera coordinates.
+
+        Args:
+            pixel_pts1: Inlier keypoints in camera-1 pixel space (N, 2).
+            pixel_pts2: Inlier keypoints in camera-2 pixel space (N, 2).
+        """
+        # Camera 1 at world origin
+        self.proj1 = np.hstack((np.eye(3), np.zeros((3, 1))))
+
+        # Use recoverPose to disambiguate the four (R, t) candidates via
+        # the cheirality constraint (points must be in front of both cameras).
         E = self._estimate_essential_matrix()
-        self.EssR1, self.EssR2, self.Ess_t = cv2.decomposeEssentialMat(E)
-        t2 = self.Ess_t.reshape(3, 1)
-        cam2_ext = np.hstack((self.EssR2, t2))
-        self.proj2 = self.K2 @ cam2_ext
+        _, R, t, _ = cv2.recoverPose(E, pixel_pts1, pixel_pts2, self.K1)
+        self.EssR2 = R
+        self.Ess_t = t
+        self.proj2 = np.hstack((R, t.reshape(3, 1)))
 
     # ------------------------------------------------------------------
     # Keypoint normalisation
@@ -198,11 +207,16 @@ class Reconstruction3D:
     # Metrics
     # ------------------------------------------------------------------
 
-    def compute_reproj_error(self) -> float:
-        """Return RMSE reprojection error onto the camera-2 image plane (pixels)."""
+    def compute_reproj_error(self, pixel_pts2: np.ndarray) -> float:
+        """Return RMSE reprojection error onto the camera-2 image plane (pixels).
+
+        Args:
+            pixel_pts2: Original pixel-coordinate correspondences in camera 2
+                        (before normalisation). Shape (N, 2).
+        """
         rot_vec, _ = cv2.Rodrigues(self.EssR2)
         proj_pts, _ = cv2.projectPoints(self.TriPts, rot_vec, self.Ess_t, self.K2, None)
-        residuals = self.imgPts2 - proj_pts.reshape(-1, 2)
+        residuals = pixel_pts2 - proj_pts.reshape(-1, 2)
         return float(np.mean(np.sqrt(np.sum(residuals**2, axis=-1))))
 
     def get_baseline_length(self) -> float:
@@ -224,22 +238,22 @@ class Reconstruction3D:
             Dictionary with keys ``points``, ``colors``, and ``metrics``.
         """
         self.process_img_pair(img1, img2)
-        # Save pixel-coord keypoints for reprojection metric later
+        # Save pixel-coord keypoints before normalisation for:
+        #   (a) recoverPose cheirality check inside compute_proj_matrices
+        #   (b) reprojection error comparison against pixel-space projections
+        raw_pts1 = self.imgPts1.copy()
         raw_pts2 = self.imgPts2.copy()
 
+        # recoverPose needs pixel coords, so call before normalize_keypts
+        self.compute_proj_matrices(raw_pts1, raw_pts2)
         self.normalize_keypts()
-        self.compute_proj_matrices()
         self.triangulate()
 
-        # Restore pixel-coord correspondences for reprojection error
-        # (reproject TriPts and compare with original pixel positions)
+        # Reprojection error: project 3D points back to camera-2 pixel space
+        # and compare with the original pixel-coord correspondences (raw_pts2).
         rot_vec, _ = cv2.Rodrigues(self.EssR2)
         proj_pts, _ = cv2.projectPoints(self.TriPts, rot_vec, self.Ess_t, self.K2, None)
-        # Denormalise imgPts2 back to pixel space for error computation
-        hom_norm2 = cv2.convertPointsToHomogeneous(raw_pts2).reshape(-1, 3)
-        pixel_pts2 = (self.K2 @ hom_norm2.T).T
-        pixel_pts2 = cv2.convertPointsFromHomogeneous(pixel_pts2).reshape(-1, 2)
-        residuals = pixel_pts2 - proj_pts.reshape(-1, 2)
+        residuals = raw_pts2 - proj_pts.reshape(-1, 2)
         reproj_rmse = float(np.mean(np.sqrt(np.sum(residuals**2, axis=-1))))
 
         depths = self.TriPts[:, 2]
