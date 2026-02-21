@@ -70,9 +70,7 @@ class Reconstruction3D:
         kps2, desc2 = sift.detectAndCompute(gray2, None)
 
         if desc1 is None or desc2 is None or len(kps1) < 8 or len(kps2) < 8:
-            raise ValueError(
-                "Insufficient keypoints detected. Ensure images have clear texture."
-            )
+            raise ValueError("Insufficient keypoints detected. Ensure images have clear texture.")
 
         # FLANN matcher
         FLANN_INDEX_KDTREE = 1
@@ -113,9 +111,7 @@ class Reconstruction3D:
         self.imgPts1 = pts1[mask_flat]
         self.imgPts2 = pts2[mask_flat]
         self.num_inliers = int(mask_flat.sum())
-        logger.info(
-            "Inliers after RANSAC: %d / %d", self.num_inliers, self.num_raw_matches
-        )
+        logger.info("Inliers after RANSAC: %d / %d", self.num_inliers, self.num_raw_matches)
 
         # Extract pixel colours from img1 at inlier keypoint locations
         colors: list = []
@@ -172,9 +168,7 @@ class Reconstruction3D:
 
     def triangulate(self) -> None:
         """Triangulate matched points via DLT into 3D coordinates."""
-        tris = [
-            self._dlt_triangulate(p1, p2) for p1, p2 in zip(self.imgPts1, self.imgPts2)
-        ]
+        tris = [self._dlt_triangulate(p1, p2) for p1, p2 in zip(self.imgPts1, self.imgPts2)]
         self.TriPts = np.vstack(tris)
 
     def _dlt_triangulate(self, pt1: np.ndarray, pt2: np.ndarray) -> np.ndarray:

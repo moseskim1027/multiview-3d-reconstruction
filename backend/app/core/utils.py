@@ -50,9 +50,7 @@ def bytes_to_bgr(data: bytes) -> np.ndarray:
     buf = np.frombuffer(data, dtype=np.uint8)
     img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
     if img is None:
-        raise ValueError(
-            "Could not decode image bytes. Ensure the file is a valid image."
-        )
+        raise ValueError("Could not decode image bytes. Ensure the file is a valid image.")
     return img
 
 

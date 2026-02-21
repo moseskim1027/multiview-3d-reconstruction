@@ -1,14 +1,14 @@
 """Unit and integration tests for the reconstruction pipeline."""
 
 import io
+
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
-from app.core.utils import parse_middlebury_calib, bytes_to_bgr, estimate_intrinsics
 from app.core.reconstruction import Reconstruction3D
-
+from app.core.utils import bytes_to_bgr, estimate_intrinsics, parse_middlebury_calib
+from app.main import app
 
 # ---------------------------------------------------------------------------
 # Fixtures

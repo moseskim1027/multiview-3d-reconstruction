@@ -14,9 +14,7 @@ class ReconstructionMetrics(BaseModel):
     inlier_ratio: float = Field(
         description="Fraction of SIFT matches that survived RANSAC filtering (0–1)."
     )
-    num_3d_points: int = Field(
-        description="Number of successfully triangulated 3D points."
-    )
+    num_3d_points: int = Field(description="Number of successfully triangulated 3D points.")
     baseline_length: float = Field(
         description="Estimated camera baseline length (magnitude of translation vector)."
     )
@@ -29,9 +27,7 @@ class ReconstructionMetrics(BaseModel):
 
 
 class ReconstructionResponse(BaseModel):
-    points: list[list[float]] = Field(
-        description="Reconstructed 3D points as [[x, y, z], ...]."
-    )
+    points: list[list[float]] = Field(description="Reconstructed 3D points as [[x, y, z], ...].")
     colors: list[list[float]] = Field(
         description="Per-point RGB colours normalised to [0, 1] as [[r, g, b], ...]."
     )
