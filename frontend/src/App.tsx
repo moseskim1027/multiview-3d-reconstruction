@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ImageUpload } from "./components/ImageUpload";
 import { MetricsPanel } from "./components/MetricsPanel";
 import { PointCloudViewer } from "./components/PointCloudViewer";
@@ -7,6 +7,16 @@ import type { AppState } from "./types";
 
 export function App() {
   const [state, setState] = useState<AppState>({ phase: "idle" });
+  const sidebarRef = useRef<HTMLElement>(null);
+  const [sidebarHeight, setSidebarHeight] = useState<number | undefined>();
+
+  useEffect(() => {
+    const el = sidebarRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setSidebarHeight(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const handleSubmit = async (im0: File, im1: File, calib?: File) => {
     setState({ phase: "loading" });
@@ -34,8 +44,8 @@ export function App() {
       </header>
 
       <main style={styles.main}>
-        {/* Left sidebar — upload + metrics */}
-        <aside style={styles.sidebar}>
+        {/* Left sidebar — upload only */}
+        <aside ref={sidebarRef} style={styles.sidebar}>
           <ImageUpload onSubmit={handleSubmit} isLoading={isLoading} />
 
           {state.phase === "error" && (
@@ -44,11 +54,9 @@ export function App() {
               <p style={styles.errorText}>{state.message}</p>
             </div>
           )}
-
-          {state.phase === "success" && <MetricsPanel metrics={state.result.metrics} />}
         </aside>
 
-        {/* Main area — 3D viewer */}
+        {/* Centre — 3D viewer */}
         <section style={styles.viewer}>
           {state.phase === "idle" && (
             <div style={styles.placeholder}>
@@ -79,6 +87,13 @@ export function App() {
             <PointCloudViewer points={state.result.points} colors={state.result.colors} />
           )}
         </section>
+
+        {/* Right panel — metrics (only when results are available) */}
+        {state.phase === "success" && (
+          <aside style={{ ...styles.metricsPanel, height: sidebarHeight }}>
+            <MetricsPanel metrics={state.result.metrics} />
+          </aside>
+        )}
       </main>
     </div>
   );
@@ -128,7 +143,11 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 16,
-    width: 340,
+    width: 320,
+    flexShrink: 0,
+  },
+  metricsPanel: {
+    width: 220,
     flexShrink: 0,
   },
   viewer: {

@@ -87,8 +87,8 @@ const styles: Record<string, React.CSSProperties> = {
   panel: {
     background: "#1a1f2e",
     borderRadius: 12,
-    padding: "20px",
-    minWidth: 280,
+    padding: "16px",
+    minWidth: 0,
   },
   heading: {
     fontSize: 16,

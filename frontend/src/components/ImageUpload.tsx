@@ -135,7 +135,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 8,
   },
   heading: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 600,
     color: "#e2e8f0",
     margin: 0,
