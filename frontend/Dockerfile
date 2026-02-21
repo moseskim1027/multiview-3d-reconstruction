@@ -7,7 +7,7 @@ COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile
 
 COPY . .
-RUN yarn build
+RUN yarn generate && yarn build
 
 # ── Stage 2: serve ────────────────────────────────────────────────────────────
 FROM nginx:1.25-alpine AS serve

@@ -4,8 +4,8 @@ import { OrbitControls, PerspectiveCamera, GizmoHelper, GizmoViewport } from "@r
 import * as THREE from "three";
 
 interface PointCloudProps {
-  points: [number, number, number][];
-  colors: [number, number, number][];
+  points: number[][];
+  colors: number[][];
   pointSize: number;
 }
 
@@ -81,8 +81,8 @@ function PointCloud({ points, colors, pointSize }: PointCloudProps) {
 }
 
 interface PointCloudViewerProps {
-  points: [number, number, number][];
-  colors: [number, number, number][];
+  points: number[][];
+  colors: number[][];
 }
 
 /**

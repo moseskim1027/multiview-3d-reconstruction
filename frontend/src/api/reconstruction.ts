@@ -1,36 +1,43 @@
+import createClient from "openapi-fetch";
+
+import type { paths } from "./schema";
 import type { ReconstructionResult } from "../types";
 
-const BASE_URL = "/api";
+const client = createClient<paths>({ baseUrl: "" });
 
 /**
  * Send a stereo image pair (and optionally a calibration file) to the
  * backend reconstruction endpoint and return the structured result.
+ *
+ * File objects are serialised into a multipart/form-data body; the
+ * OpenAPI schema represents binary fields as `string` so we close over
+ * the originals in the bodySerializer rather than relying on the typed body.
  */
 export async function runReconstruction(
   im0: File,
   im1: File,
   calib?: File
 ): Promise<ReconstructionResult> {
-  const form = new FormData();
-  form.append("im0", im0);
-  form.append("im1", im1);
-  if (calib) form.append("calib", calib);
-
-  const response = await fetch(`${BASE_URL}/reconstruct`, {
-    method: "POST",
-    body: form,
+  const { data, error } = await client.POST("/api/reconstruct", {
+    // Cast required: schema types binary fields as string, but we send Files
+    body: { im0, im1, calib } as unknown as {
+      im0: string;
+      im1: string;
+      calib?: string;
+    },
+    bodySerializer() {
+      const form = new FormData();
+      form.append("im0", im0);
+      form.append("im1", im1);
+      if (calib) form.append("calib", calib);
+      return form;
+    },
   });
 
-  if (!response.ok) {
-    let detail = `HTTP ${response.status}`;
-    try {
-      const body = await response.json();
-      detail = body.detail ?? detail;
-    } catch {
-      // ignore JSON parse errors
-    }
-    throw new Error(detail);
+  if (error) {
+    const detail = (error as { detail?: string }).detail;
+    throw new Error(detail ?? "Reconstruction failed");
   }
 
-  return response.json() as Promise<ReconstructionResult>;
+  return data;
 }

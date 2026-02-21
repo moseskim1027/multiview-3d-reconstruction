@@ -24,6 +24,9 @@ htmlcov/
 node_modules/
 frontend/dist/
 
+# Generated API types (regenerated from openapi.json at build/dev time)
+frontend/src/api/schema.d.ts
+
 # Editor
 .vscode/
 .idea/
